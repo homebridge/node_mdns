@@ -4,7 +4,8 @@
   "description": "multicast DNS service discovery",
   "main": "./lib/mdns.js",
   "scripts": {
-    "test": "node utils/testrun"
+    "test": "node utils/testrun",
+    "install": "node scripts/check-prebuild.js || prebuild-install || node scripts/install.js"
   },
   "keywords": [
     "zeroconf",
@@ -20,6 +21,8 @@
     "mkdirp": "*",
     "ncp": "*",
     "nopt": "*",
+    "prebuild": "^10.0.1",
+    "prebuildify": "^4.1.2",
     "proxyquire": "^2.0.0",
     "slide": "*"
   },
@@ -79,7 +82,8 @@
   ],
   "dependencies": {
     "bindings": "~1.2.1",
-    "nan": "^2.14.0"
+    "nan": "^2.14.0",
+    "prebuild-install": "^6.0.0"
   },
   "gypfile": true
 }

@@ -1,0 +1,119 @@
+name: "Prebuild Binaries"
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag'     
+        required: true
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        name: [
+          alpine-x86_64,
+          alpine-arm32v6,
+          alpine-arm64v8,
+          debian-x86_64,
+          debian-i386,
+          debian-arm32v6,
+          debian-arm64v8,
+          darwin-x86_64,
+          windows-x86_64,
+        ]
+        include:
+          - name: alpine-x86_64
+            os: ubuntu-latest
+            BASE_IMAGE: library/node:15-alpine
+            DOCKERFILE: Dockerfile.alpine
+            QEMU_ARCH: x86_64
+
+          - name: alpine-arm32v6
+            os: ubuntu-latest
+            BASE_IMAGE: arm32v6/node:15-alpine
+            DOCKERFILE: Dockerfile.alpine
+            QEMU_ARCH: arm
+
+          - name: alpine-arm64v8
+            os: ubuntu-latest
+            BASE_IMAGE: arm64v8/node:15-alpine
+            DOCKERFILE: Dockerfile.alpine
+            QEMU_ARCH: aarch64
+
+          - name: debian-x86_64
+            os: ubuntu-latest
+            BASE_IMAGE: library/debian:9.6-slim
+            DOCKERFILE: Dockerfile.debian
+            QEMU_ARCH: x86_64
+
+          - name: debian-i386
+            os: ubuntu-latest
+            BASE_IMAGE: i386/debian:9.6-slim
+            DOCKERFILE: Dockerfile.debian
+            QEMU_ARCH: i386
+
+          - name: debian-arm32v6
+            os: ubuntu-latest
+            BASE_IMAGE: balenalib/raspberry-pi-debian:stretch
+            DOCKERFILE: Dockerfile.debian
+            QEMU_ARCH: arm
+
+          - name: debian-arm64v8
+            os: ubuntu-latest
+            BASE_IMAGE: arm64v8/debian:9.6-slim
+            DOCKERFILE: Dockerfile.debian
+            QEMU_ARCH: aarch64
+
+          - name: darwin-x86_64
+            os: macOS-latest
+
+          - name: windows-x86_64
+            os: windows-latest
+
+    steps: 
+    - uses: actions/checkout@v1
+    - uses: actions/setup-node@v1
+      with:
+        node-version: 15.x
+
+    - name: Linux - Setup Dependencies
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get --yes --no-install-recommends install binfmt-support qemu-user-static
+        docker run --rm --privileged multiarch/qemu-user-static:register --reset
+
+    - name: Linux - Build Docker Image
+      if: runner.os == 'Linux'
+      run: |
+        docker build -f .prebuild/${{ matrix.DOCKERFILE }} --build-arg BASE_IMAGE=${{ matrix.BASE_IMAGE }} --build-arg QEMU_ARCH=${{ matrix.QEMU_ARCH }} -t multiarch-build .
+
+    - name: Linux - Prebuild Binaries
+      if: runner.os == 'Linux'
+      run: |
+        docker run --rm -v $(pwd):/node-mdns multiarch-build
+
+    - name: macOS - Prebuild Binaries
+      if: runner.os == 'macOS'
+      run: |
+        npm install --ignore-scripts
+        node .prebuild/build.js
+
+    - name: Windows - Prebuild Binaries
+      if: runner.os == 'Windows'
+      shell: bash
+      run: |
+        npm install --ignore-scripts 
+        node .prebuild/build.js 
+        node_modules/.bin/prebuild -t 10.0.0 -t 11.0.0 -t 12.0.0 -t 13.0.0 -t 14.0.0 -t 15.0.0 --include-regex "\.(node|exe|dll|pdb)"
+        node_modules/.bin/prebuild -t 10.0.0 -t 11.0.0 -t 12.0.0 -t 13.0.0 -t 14.0.0 -t 15.0.0 --include-regex "\.(node|exe|dll|pdb)" -a ia32 
+        node_modules/.bin/prebuild -t 5.0.0 -t 6.0.0 -t 7.0.0 -t 8.0.0 -t 9.0.0 -t 10.0.0 -t 11.0.0 --include-regex "\.(node|exe|dll|pdb)" -r electron 
+        node_modules/.bin/prebuild -t 5.0.0 -t 6.0.0 -t 7.0.0 -t 8.0.0 -t 9.0.0 -t 10.0.0 -t 11.0.0 --include-regex "\.(node|exe|dll|pdb)" -r electron -a ia32 
+
+    # - uses: AButler/upload-release-assets@v2.0
+    #   with:
+    #     files: 'prebuilds/*.tar.gz'
+    #     repo-token: ${{ secrets.GITHUB_TOKEN }}
+    #     release-tag: ${{ github.event.inputs.tag }}
