@@ -25,12 +25,14 @@ jobs:
       with:
         node-version: 15.x
 
-    - name: macOS - Prebuild Binaries
-      run: |
-        npm install --ignore-scripts
-        node .prebuild/build.js
+    - name: Setup Docker
+      uses: docker-practice/actions-setup-docker@master
 
-    - uses: docker-practice/actions-setup-docker@master
     - name: Linux - Prebuild Binaries (Via Docker)
       run: |
         ./build.sh
+
+    - name: macOS - Prebuild Binaries
+      run: |
+        npm install --ignore-scripts
+        node .prebuild/buildify.js
